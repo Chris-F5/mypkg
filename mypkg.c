@@ -369,29 +369,38 @@ cleanup:
 int
 main(int argc, char **argv)
 {
-    char *install_dir, *package_dir;
+    char *install_dir, *default_package_dir;
+    char **package_dirs;
+    int package_dir_count;
+
+    default_package_dir = DEFAULT_PACKAGE_DIR;
 
     if(argc < 1) {
         fprintf(stderr, "too few arguments\n");
         return 1;
     } else if (argc == 1) {
-        package_dir = DEFAULT_PACKAGE_DIR;
+        package_dirs = &default_package_dir;
+        package_dir_count = 1;
         install_dir = DEFAULT_INSTALL_DIR;
     } else if(argc == 2) {
-        package_dir = argv[1];
+        package_dirs = &argv[1];
+        package_dir_count = 1;
         install_dir = DEFAULT_INSTALL_DIR;
-    } else if (argc == 3) {
-        package_dir = argv[1];
-        install_dir = argv[2];
+    } else if (argc >= 3) {
+        package_dirs = &argv[1];
+        package_dir_count = argc - 2;
+        install_dir = argv[argc - 1];
     } else {
-        fprintf(stderr, "too many arguments\n");
-        return 1;
+        fprintf(stderr, "unreachable code\n");
+        exit(1);
     }
 
-    if(install_pkg(package_dir, install_dir)) {
-        fprintf(stderr, "failed to install package '%s'\n", package_dir);
-        return 1;
-    }
+    for(int i = 0; i < package_dir_count; i++)
+        if(install_pkg(package_dirs[i], install_dir)) {
+            fprintf(stderr,
+                "failed to install package '%s'\n", package_dirs[i]);
+            return 1;
+        }
 
     return 0;
 }
