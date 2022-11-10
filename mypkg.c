@@ -1,6 +1,6 @@
 /*
  * usage:
- *   mypkg {install/uninstall} [package directory] [target directory]
+ *   mypkg {install/uninstall} [package directory]... [target directory]
  */
 
 #include <dirent.h>
@@ -21,7 +21,6 @@
 #define PACKAGE_FILES_DIRNAME "pkgfiles"
 
 int add_to_buffer(char *new, char *buf, size_t buf_size, int *buf_index);
-int path_combine(char *dir, char *file, char *buf);
 int path_common_prefix(char *a, char *b);
 int path_relative(char *src_dir, char *dst_file, char* buf);
 int touch_dir(char *dir);
@@ -36,21 +35,6 @@ add_to_buffer(char *new, char *buf, size_t buf_size, int *buf_index)
             return 1;
         buf[(*buf_index)++] = *new++;
     }
-    return 0;
-}
-
-int
-path_combine(char *dir, char *file, char *buf)
-{
-    int i = 0;
-    if(add_to_buffer(dir, buf, PATH_MAX - 1, &i))
-        return 1;
-    if(i > 0 && buf[i - 1] != '/')
-        if(add_to_buffer("/", buf, PATH_MAX - 1, &i))
-            return 1;
-    if(add_to_buffer(file, buf, PATH_MAX - 1, &i))
-            return 1;
-    buf[i] = '\0';
     return 0;
 }
 
@@ -293,7 +277,8 @@ find_recursive(
             errno = 0;
             continue;
         }
-        if (path_combine(dir_name, file->d_name, file_name)) {
+        if (snprintf(file_name, PATH_MAX, "%s/%s", dir_name, file->d_name)
+                >= PATH_MAX) {
             ret = 1;
             fprintf(stderr, "file exceeded PATH_MAX in '%s'\n", dir_name);
             goto cleanup;
@@ -367,7 +352,7 @@ install_file(char *src_file, unsigned int type, void *ctx)
     }
     while(*file_name == '/') file_name++;
 
-    if(path_combine(dst_dir, file_name, dst_file)) {
+    if(snprintf(dst_file, PATH_MAX, "%s/%s", dst_dir, file_name) >= PATH_MAX) {
         fprintf(stderr, "path exceeds PATH_MAX somewhere in '%s'\n", dst_dir);
         ret = 1;
         goto cleanup;
@@ -440,7 +425,7 @@ uninstall_link(char *src_file, unsigned int type, void *ctx)
     }
     while(*file_name == '/') file_name++;
 
-    if(path_combine(dst_dir, file_name, dst_file)) {
+    if(snprintf(dst_file, PATH_MAX, "%s/%s", dst_dir, file_name) >= PATH_MAX) {
         fprintf(stderr, "path exceeds PATH_MAX somewhere in '%s'\n", dst_dir);
         ret = 1;
         goto cleanup;
@@ -551,7 +536,7 @@ uninstall_directory(char *src_file, unsigned int type, void *ctx)
     }
     while(*file_name == '/') file_name++;
 
-    if(path_combine(dst_dir, file_name, dst_file)) {
+    if(snprintf(dst_file, PATH_MAX, "%s/%s", dst_dir, file_name) >= PATH_MAX) {
         fprintf(stderr, "path exceeds PATH_MAX somewhere in '%s'\n", dst_dir);
         ret = 1;
         goto cleanup;
@@ -601,7 +586,8 @@ install_pkg(char *pkg_dir, char *install_dir)
         goto cleanup;
     }
 
-    if(path_combine(pkg_dir, PACKAGE_FILES_DIRNAME, pkgfiles_dir)) {
+    if(snprintf(pkgfiles_dir, PATH_MAX, "%s/%s", pkg_dir, PACKAGE_FILES_DIRNAME)
+            >= PATH_MAX) {
         fprintf(stderr,
             "'%s' in '%s' exceeds PATH_MAX\n", PACKAGE_FILES_DIRNAME, pkg_dir);
         ret = 1;
@@ -636,7 +622,8 @@ uninstall_pkg(char *pkg_dir, char *install_dir)
         goto cleanup;
     }
 
-    if(path_combine(pkg_dir, PACKAGE_FILES_DIRNAME, pkgfiles_dir)) {
+    if(snprintf(pkgfiles_dir, PATH_MAX, "%s/%s", pkg_dir, PACKAGE_FILES_DIRNAME)
+            >= PATH_MAX) {
         fprintf(stderr,
             "'%s' in '%s' exceeds PATH_MAX\n", PACKAGE_FILES_DIRNAME, pkg_dir);
         ret = 1;
@@ -714,14 +701,10 @@ main(int argc, char **argv)
         package_dirs = &argv[2];
         package_count = 1;
         install_dir = DEFAULT_INSTALL_DIR;
-    } else if (argc >= 4) {
+    } else {
         package_dirs = &argv[2];
         package_count = argc - 3;
         install_dir = argv[argc - 1];
-    } else {
-        fprintf(stderr, "unreachable code\n");
-        ret = 1;
-        goto done;
     }
 
     if(strcmp(argv[1], "install") == 0) {
