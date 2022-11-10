@@ -23,9 +23,22 @@
 int add_to_buffer(char *new, char *buf, size_t buf_size, int *buf_index);
 int path_common_prefix(char *a, char *b);
 int path_relative(char *src_dir, char *dst_file, char* buf);
+char *remove_prefix(char *prefix, char *string);
 int touch_dir(char *dir);
 int make_relative_link(char *target, char *link_file);
 int copy_link(char *src, char *dst);
+int find_recursive(
+    char *dir_name,
+    int (*handle)(char *, unsigned int, void *),
+    void *handle_ctx);
+char *str_file_type(unsigned int type);
+int install_file(char *src_file, unsigned int type, void *ctx);
+int uninstall_link(char *src_file, unsigned int type, void *ctx);
+int uninstall_directory(char *src_file, unsigned int type, void *ctx);
+int install_pkg(char *pkg_dir, char *install_dir);
+int uninstall_pkg(char *pkg_dir, char *install_dir);
+int install(char **package_dirs, int package_count, char *install_dir);
+int uninstall(char **package_dirs, int package_count, char *install_dir);
 
 int
 add_to_buffer(char *new, char *buf, size_t buf_size, int *buf_index)
