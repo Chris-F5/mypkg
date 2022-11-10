@@ -1,2 +1,9 @@
+.PHONY: all
+
+all: mypkg mychroot
+
 mypkg: mypkg.c
-	gcc -g mypkg.c -o mypkg
+	gcc -g $< -o $@
+
+mychroot: mychroot.c
+	gcc -g $< -o $@
