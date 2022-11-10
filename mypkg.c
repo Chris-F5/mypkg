@@ -526,13 +526,16 @@ cleanup:
 int
 uninstall_directory(char *src_file, unsigned int type, void *ctx)
 {
-    int ret = 0;
-    int link_len;
-    char *src_dir, *dst_dir, *file_name;
-    char *dst_file;
+    int ret, link_len, *done;
+    char *src_dir, *dst_dir, *file_name, *dst_file;
+    struct { char *src; char *dst; int done; } *cast_ctx;
 
-    src_dir = ((char **)ctx)[0];
-    dst_dir = ((char **)ctx)[1];
+    ret = 0;
+    cast_ctx = ctx;
+
+    src_dir = cast_ctx->src;
+    dst_dir = cast_ctx->dst;
+    done = &cast_ctx->done;
 
     dst_file = malloc(PATH_MAX);
     if(dst_file == NULL) {
@@ -557,12 +560,16 @@ uninstall_directory(char *src_file, unsigned int type, void *ctx)
 
     switch(type) {
     case DT_DIR:
-        if(rmdir(dst_file) && errno != ENOTEMPTY && errno != ENOENT) {
+        if(rmdir(dst_file)) {
+            if(errno == ENOTEMPTY || errno == ENOENT)
+                break;
             char *err = strerror(errno);
             fprintf(stderr,
                 "failed to remove directory '%s': %s\n", dst_file, err);
             ret = 1;
             goto cleanup;
+        } else {
+            *done = 0;
         }
         break;
     case DT_LNK:
@@ -643,20 +650,24 @@ uninstall_pkg(char *pkg_dir, char *install_dir)
         goto cleanup;
     }
 
-    char *ctx[2];
-    ctx[0] = pkgfiles_dir;
-    ctx[1] = install_dir;
+    struct {char *src; char *dst; int done; } ctx;
+    ctx.src = pkgfiles_dir;
+    ctx.dst = install_dir;
+
     if(find_recursive(pkgfiles_dir, uninstall_link, &ctx)) {
         fprintf(stderr, "failed to uninstall files from '%s'\n", install_dir);
         ret = 1;
         goto cleanup;
     }
-    if(find_recursive(pkgfiles_dir, uninstall_directory, &ctx)) {
-        fprintf(stderr, "failed to uninstall directories from '%s'\n",
-            install_dir);
-        ret = 1;
-        goto cleanup;
-    }
+    do {
+        ctx.done = 1;
+        if(find_recursive(pkgfiles_dir, uninstall_directory, &ctx)) {
+            fprintf(stderr, "failed to uninstall directories from '%s'\n",
+                install_dir);
+            ret = 1;
+            goto cleanup;
+        }
+    } while(ctx.done == 0);
 
 cleanup:
     free(pkgfiles_dir);
